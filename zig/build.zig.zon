@@ -19,5 +19,6 @@
         "llm",
         "render",
         "web",
+        "LICENSE",
     },
 }

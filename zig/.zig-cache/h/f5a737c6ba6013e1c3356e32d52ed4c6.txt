@@ -841,4 +841,4 @@
 2623 6872616 1784912402642184129 e8a06df9d2d229aed7edbc6f5a45aa15 0 /Users/dewaldlaubscher/Projects/directed-llm-output/zig/llm/client.zig
 736 6852197 1784861282575765970 52369a93033556095b9e7a4fe1dd8786 0 /Users/dewaldlaubscher/Projects/directed-llm-output/zig/render/event.zig
 41753 6179777 1784244005317803592 d5cf7d1a1d504254a913ef91583308dc 0 /Users/dewaldlaubscher/Projects/directed-llm-output/zig/zig-pkg/sqlite-3.48.0-F2R_azCQDgBGaWDIX4g2vxKpuqzYEQOOfAeJGMNocPu0/c/loadable_extension.zig
-17784 6970656 1784986538624460435 712730a391e239b94c0f42f4336ceb00 0 /Users/dewaldlaubscher/Projects/directed-llm-output/zig/web/index.html
+17783 7014011 1784993393849842752 7bb56d92c3cc96884fa6e8be665ba562 0 /Users/dewaldlaubscher/Projects/directed-llm-output/zig/web/index.html

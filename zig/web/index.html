@@ -418,7 +418,7 @@ function escapeHtml(s) {
 function highlightJson(pretty) {
   const escaped = escapeHtml(pretty);
   return escaped.replace(
-    /("(?:\\u[a-fA-F0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(?:true|false)\b|\bnull\b|-?\d+(?:\.\d+)?(?:[eE][+\-]?\d+)?/g,
+    /"(?:\\u[a-fA-F0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(?:true|false)\b|\bnull\b|-?\d+(?:\.\d+)?(?:[eE][+\-]?\d+)?/g,
     (match) => {
       if (/^"/.test(match)) return '<span class="' + (/:$/.test(match) ? "jk" : "js") + '">' + match + "</span>";
       if (/true|false/.test(match)) return '<span class="jb">' + match + "</span>";
