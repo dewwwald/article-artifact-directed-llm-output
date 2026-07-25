@@ -1,0 +1,23 @@
+.{
+    .name = .ast_matcher,
+    .version = "0.0.0",
+    .fingerprint = 0x2aa74f6e646f5df2,
+    .minimum_zig_version = "0.16.0",
+    .dependencies = .{
+        .sqlite = .{
+            .url = "git+https://github.com/vrischmann/zig-sqlite#946d77c526258760b52836187af32d1a192c5d36",
+            .hash = "sqlite-3.48.0-F2R_azCQDgBGaWDIX4g2vxKpuqzYEQOOfAeJGMNocPu0",
+        },
+    },
+    .paths = .{
+        "build.zig",
+        "build.zig.zon",
+        "main.zig",
+        "query.zig",
+        "db",
+        "ast",
+        "llm",
+        "render",
+        "web",
+    },
+}

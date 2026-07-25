@@ -1,0 +1,600 @@
+<title>Directed Decoding Demo</title>
+<meta charset="utf-8">
+<style>
+  :root {
+    color-scheme: dark;
+    --surface-1:      #1a1a19;
+    --page:           #1a1b1e;
+    --text-primary:   #ffffff;
+    --text-secondary: #c3c2b7;
+    --text-muted:     #898781;
+    --border:         #2c2c2a;
+    --series-browser: #3987e5; /* categorical slot 1: blue */
+    --series-server:  #008300; /* categorical slot 2: green */
+    --series-llm:     #d55181; /* categorical slot 3: magenta */
+    --status-good:    #0ca30c;
+    --status-warning: #fab219;
+    --status-critical:#d03b3b;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    background: var(--page);
+    color: var(--text-primary);
+    height: 100vh;
+    display: flex;
+  }
+  .pane {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+  }
+  #chat-pane {
+    flex: 1 1 45%;
+    border-right: 1px solid var(--border);
+  }
+  #viz-pane {
+    flex: 1 1 55%;
+    min-width: 0;
+  }
+  .pane-header {
+    padding: 12px 16px;
+    font-weight: 600;
+    border-bottom: 1px solid var(--border);
+    color: var(--text-muted);
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    flex: none;
+  }
+  #chat-log {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px;
+  }
+  .msg {
+    margin-bottom: 12px;
+    max-width: 90%;
+    padding: 10px 14px;
+    border-radius: 10px;
+    line-height: 1.4;
+    white-space: pre-wrap;
+    font-size: 14px;
+  }
+  .msg.user {
+    background: #2b5797;
+    margin-left: auto;
+  }
+  .msg.assistant {
+    background: #2a2b2e;
+  }
+  .msg.error {
+    background: #5c2b2b;
+  }
+  #chat-form {
+    display: flex;
+    gap: 8px;
+    padding: 12px 16px;
+    border-top: 1px solid var(--border);
+  }
+  #chat-input {
+    flex: 1;
+    background: #2a2b2e;
+    border: 1px solid #3d3e42;
+    border-radius: 6px;
+    color: inherit;
+    padding: 10px 12px;
+    font-size: 14px;
+  }
+  #chat-form button {
+    background: #2b5797;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    padding: 10px 18px;
+    font-size: 14px;
+    cursor: pointer;
+  }
+  #chat-form button:disabled {
+    opacity: 0.5;
+    cursor: default;
+  }
+  #status {
+    font-size: 12px;
+    color: var(--text-muted);
+    padding: 0 16px 8px;
+  }
+
+  /* --- architecture diagram --- */
+  #diagram {
+    display: flex;
+    align-items: center;
+    padding: 24px 20px 8px;
+    flex: none;
+  }
+  .node {
+    flex: none;
+    padding: 10px 14px;
+    border-radius: 8px;
+    background: #232427;
+    border: 1px solid var(--border);
+    font-size: 13px;
+    font-weight: 600;
+    text-align: center;
+    white-space: nowrap;
+  }
+  .node .dot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    margin-right: 6px;
+  }
+  #node-browser .dot { background: var(--series-browser); }
+  #node-server .dot  { background: var(--series-server); }
+  #node-llm .dot     { background: var(--series-llm); }
+  .node {
+    position: relative;
+    transition: box-shadow 0.2s ease, border-color 0.2s ease;
+  }
+  .node.pulse {
+    animation: node-pulse 0.6s ease;
+  }
+  @keyframes node-pulse {
+    0%   { box-shadow: 0 0 0 0 currentColor; }
+    40%  { box-shadow: 0 0 0 4px currentColor; }
+    100% { box-shadow: 0 0 0 0 transparent; }
+  }
+  #node-llm.pulse { color: var(--series-llm); }
+  .badge {
+    display: none;
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    background: var(--series-llm);
+    color: #1a1b1e;
+    font-size: 10px;
+    font-weight: 700;
+    line-height: 1;
+    padding: 3px 5px;
+    border-radius: 8px;
+    white-space: nowrap;
+  }
+  .badge.show { display: inline-block; }
+
+  .link {
+    flex: 1 1 auto;
+    position: relative;
+    height: 2px;
+    background: var(--border);
+    margin: 0 8px;
+    min-width: 40px;
+  }
+  .link .label {
+    position: absolute;
+    top: -18px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 10px;
+    color: var(--text-muted);
+    white-space: nowrap;
+  }
+  .packet {
+    position: absolute;
+    top: 50%;
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    box-shadow: 0 0 6px currentColor;
+  }
+  .packet.fwd { animation: travel-fwd 0.7s ease-in-out forwards; }
+  .packet.rev { animation: travel-rev 0.7s ease-in-out forwards; }
+  @keyframes travel-fwd {
+    from { left: 0%; opacity: 0; }
+    10%  { opacity: 1; }
+    90%  { opacity: 1; }
+    to   { left: 100%; opacity: 0; }
+  }
+  @keyframes travel-rev {
+    from { left: 100%; opacity: 0; }
+    10%  { opacity: 1; }
+    90%  { opacity: 1; }
+    to   { left: 0%; opacity: 0; }
+  }
+
+  /* --- brick wall: one section per LLM attempt, stacked so retries show
+     the AST being iterated on rather than just replacing the last try --- */
+  #wall-wrap {
+    flex: 1;
+    overflow-y: auto;
+    padding: 8px 16px 16px;
+  }
+  .attempt {
+    margin-bottom: 10px;
+  }
+  .attempt-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 11.5px;
+    color: var(--text-muted);
+    padding: 0 2px 4px;
+  }
+  .attempt-header .pill {
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2px 6px;
+    border-radius: 8px;
+    background: #2a2b2e;
+    color: var(--text-secondary);
+  }
+  .attempt-header .pill.good { background: var(--status-good); color: #0d1a0d; }
+  .attempt-header .pill.critical { background: var(--status-critical); color: #1a0d0d; }
+  .attempt-header .pill.pending { background: var(--series-llm); color: #1a0d13; }
+  .attempt.past .brick-row {
+    opacity: 0.55;
+  }
+  .pretty-json {
+    margin: 0;
+    padding: 12px 14px;
+    background: var(--surface-1);
+    border: 1px solid var(--status-good);
+    box-shadow: 0 0 0 1px var(--status-good);
+    border-radius: 8px;
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 12.5px;
+    line-height: 1.5;
+    white-space: pre;
+    overflow-x: auto;
+    color: var(--text-secondary);
+  }
+  .pretty-json .jk { color: var(--text-muted); }
+  .pretty-json .js { color: var(--series-llm); }
+  .pretty-json .jn { color: var(--series-browser); }
+  .pretty-json .jb, .pretty-json .jz { color: var(--status-warning); }
+  .brick-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-content: flex-start;
+    gap: 2px;
+    padding: 12px;
+    background: var(--surface-1);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    min-height: 40px;
+    transition: box-shadow 0.3s ease, border-color 0.3s ease, opacity 0.3s ease;
+  }
+  .brick-row.settle-good {
+    border-color: var(--status-good);
+    box-shadow: 0 0 0 1px var(--status-good);
+  }
+  .brick-row.settle-bad {
+    border-color: var(--status-critical);
+    box-shadow: 0 0 0 1px var(--status-critical);
+  }
+  .brick {
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 12.5px;
+    line-height: 1;
+    padding: 4px 5px;
+    border-radius: 3px;
+    background: #2a2b2e;
+    color: var(--text-secondary);
+    animation: pop-in 0.16s ease-out;
+    min-width: 8px;
+    text-align: center;
+  }
+  .brick.punct { color: var(--text-muted); background: #232427; }
+  .brick.content { color: var(--series-llm); background: #33222a; }
+  .brick.rejected {
+    background: var(--status-critical);
+    color: #1a1b1e;
+    animation: shake 0.3s ease;
+  }
+  @keyframes pop-in {
+    from { transform: scale(0.3); opacity: 0; }
+    to   { transform: scale(1); opacity: 1; }
+  }
+  @keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-3px); }
+    75% { transform: translateX(3px); }
+  }
+
+  #wall-status {
+    font-size: 12.5px;
+    padding: 0 16px 10px;
+    color: var(--text-secondary);
+  }
+  #wall-status.good { color: var(--status-good); font-weight: 600; }
+  #wall-status.warning { color: var(--status-warning); font-weight: 600; }
+  #wall-status.critical { color: var(--status-critical); font-weight: 600; }
+</style>
+
+<div id="chat-pane" class="pane">
+  <div class="pane-header">Chat</div>
+  <div id="chat-log"></div>
+  <div id="status">connecting...</div>
+  <form id="chat-form">
+    <input id="chat-input" autocomplete="off" placeholder="give me all items that have name gadget and price 50" />
+    <button type="submit" id="chat-send">Ask</button>
+  </form>
+</div>
+
+<div id="viz-pane" class="pane">
+  <div class="pane-header">How It Works</div>
+  <div id="diagram">
+    <div class="node" id="node-browser"><span class="dot"></span>Browser</div>
+    <div class="link" id="link-bs"><span class="label">websocket</span></div>
+    <div class="node" id="node-server"><span class="dot"></span>Zig Server</div>
+    <div class="link" id="link-sl"><span class="label">HTTP + JSON Schema</span></div>
+    <div class="node" id="node-llm"><span class="dot"></span>LM Studio<span class="badge" id="llm-badge"></span></div>
+  </div>
+  <div id="wall-status">waiting for a question...</div>
+  <div id="wall-wrap"><div id="attempts"></div></div>
+</div>
+
+<script>
+const chatLog = document.getElementById("chat-log");
+const form = document.getElementById("chat-form");
+const input = document.getElementById("chat-input");
+const sendBtn = document.getElementById("chat-send");
+const status = document.getElementById("status");
+const attempts = document.getElementById("attempts");
+const wallStatus = document.getElementById("wall-status");
+const linkBS = document.getElementById("link-bs");
+const linkSL = document.getElementById("link-sl");
+const nodeLlm = document.getElementById("node-llm");
+const llmBadge = document.getElementById("llm-badge");
+
+function addChat(text, cls) {
+  const div = document.createElement("div");
+  div.className = "msg " + cls;
+  div.textContent = text;
+  chatLog.appendChild(div);
+  chatLog.scrollTop = chatLog.scrollHeight;
+}
+
+function setWallStatus(text, cls) {
+  wallStatus.textContent = text;
+  wallStatus.className = cls || "";
+}
+
+// --- architecture diagram: animated packets along the two links, plus a
+// pulse + attempt badge on the LM Studio node so retries visibly read as
+// "asking the model again", not just a silent restart. ---
+function sendPacket(link, color, direction) {
+  const packet = document.createElement("div");
+  packet.className = "packet " + direction;
+  packet.style.color = color;
+  packet.style.background = color;
+  link.appendChild(packet);
+  packet.addEventListener("animationend", () => packet.remove());
+}
+const BROWSER = getComputedStyle(document.documentElement).getPropertyValue("--series-browser").trim();
+const SERVER = getComputedStyle(document.documentElement).getPropertyValue("--series-server").trim();
+const LLM = getComputedStyle(document.documentElement).getPropertyValue("--series-llm").trim();
+
+function pulseLlmNode() {
+  nodeLlm.classList.remove("pulse");
+  void nodeLlm.offsetWidth; // restart the animation even if it's still running
+  nodeLlm.classList.add("pulse");
+}
+function setLlmBadge(text) {
+  llmBadge.textContent = text;
+  llmBadge.classList.toggle("show", !!text);
+}
+
+// --- attempt history: one brick-row section per LLM attempt, stacked so a
+// retry visibly iterates on the AST instead of silently replacing it. ---
+let currentAttemptEl = null;
+let currentRow = null;
+let brickQueue = [];
+let draining = false;
+let pendingByte = null;
+
+function startAttempt(label) {
+  const el = document.createElement("div");
+  el.className = "attempt";
+  el.rawText = "";
+  el.innerHTML =
+    '<div class="attempt-header"><span>' + label + '</span><span class="pill pending">generating</span></div>' +
+    '<div class="brick-row"></div>';
+  attempts.appendChild(el);
+  attempts.parentElement.scrollTop = attempts.parentElement.scrollHeight;
+  currentAttemptEl = el;
+  currentRow = el.querySelector(".brick-row");
+  return el;
+}
+
+// Minimal JSON pretty-printer + syntax highlighter, so a successful attempt
+// reads as properly indented JSON instead of the raw unformatted bytes the
+// model actually streamed.
+function escapeHtml(s) {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+function highlightJson(pretty) {
+  const escaped = escapeHtml(pretty);
+  return escaped.replace(
+    /("(?:\\u[a-fA-F0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(?:true|false)\b|\bnull\b|-?\d+(?:\.\d+)?(?:[eE][+\-]?\d+)?/g,
+    (match) => {
+      if (/^"/.test(match)) return '<span class="' + (/:$/.test(match) ? "jk" : "js") + '">' + match + "</span>";
+      if (/true|false/.test(match)) return '<span class="jb">' + match + "</span>";
+      if (/null/.test(match)) return '<span class="jz">' + match + "</span>";
+      return '<span class="jn">' + match + "</span>";
+    }
+  );
+}
+
+function finalizeAttempt(kind, pillText) {
+  const el = currentAttemptEl;
+  if (!el) return;
+  el.classList.add("past");
+  const pill = el.querySelector(".pill");
+  pill.textContent = pillText;
+  pill.className = "pill " + kind;
+  const row = el.querySelector(".brick-row");
+  if (kind === "good") {
+    try {
+      const pretty = JSON.stringify(JSON.parse(el.rawText), null, 2);
+      const pre = document.createElement("pre");
+      pre.className = "pretty-json";
+      pre.innerHTML = highlightJson(pretty);
+      row.replaceWith(pre);
+      return;
+    } catch (e) {
+      // fall through to the raw brick view if it somehow doesn't parse
+    }
+  }
+  row.classList.add(kind === "good" ? "settle-good" : "settle-bad");
+}
+function resetAttempts() {
+  brickQueue = [];
+  attempts.innerHTML = "";
+  setLlmBadge("");
+  startAttempt("Attempt 1");
+}
+
+function charLabel(byte) {
+  const ch = String.fromCharCode(byte);
+  if (ch === "\n" || ch === "\r") return "⏎";
+  if (ch === " ") return "·";
+  return ch;
+}
+function isPunct(byte) {
+  return "{}[]:,\"".includes(String.fromCharCode(byte));
+}
+
+function appendBrick(byte, status) {
+  if (!currentRow) return;
+  if (currentAttemptEl) currentAttemptEl.rawText += String.fromCharCode(byte);
+  const el = document.createElement("span");
+  el.className = "brick " + (isPunct(byte) ? "punct" : "content");
+  el.textContent = charLabel(byte);
+  currentRow.appendChild(el);
+  attempts.parentElement.scrollTop = attempts.parentElement.scrollHeight;
+  if (status && typeof status === "object" && "invalid" in status) {
+    el.classList.add("rejected");
+    el.title = status.invalid;
+  }
+}
+
+function queueBrick(byte, status) {
+  brickQueue.push({ byte, status });
+  if (!draining) drainBricks();
+}
+function drainBricks() {
+  draining = true;
+  const step = () => {
+    if (brickQueue.length === 0) {
+      draining = false;
+      return;
+    }
+    const { byte, status } = brickQueue.shift();
+    appendBrick(byte, status);
+    setTimeout(step, 16);
+  };
+  step();
+}
+
+function describeStatus(s) {
+  if (s && typeof s === "object" && "invalid" in s) return "rejected: " + s.invalid;
+  if (s && typeof s === "object" && "valid_complete" in s) return "complete and valid";
+  if (s && typeof s === "object" && "valid_incomplete" in s) return "valid so far";
+  return JSON.stringify(s);
+}
+
+function handleEvent(event) {
+  const kind = Object.keys(event)[0];
+  const payload = event[kind];
+
+  switch (kind) {
+    case "prompt_sent":
+      resetAttempts();
+      setWallStatus("sending prompt to LM Studio...");
+      sendPacket(linkBS, BROWSER, "fwd");
+      setTimeout(() => {
+        sendPacket(linkSL, SERVER, "fwd");
+        pulseLlmNode();
+      }, 200);
+      break;
+    case "response_received":
+      setWallStatus("response received, validating byte by byte...");
+      sendPacket(linkSL, LLM, "rev");
+      setTimeout(() => sendPacket(linkBS, SERVER, "fwd"), 200);
+      break;
+    case "token_fed":
+      pendingByte = payload.byte;
+      break;
+    case "validation_result":
+      if (pendingByte !== null) {
+        queueBrick(pendingByte, payload);
+        pendingByte = null;
+      }
+      if (payload && typeof payload === "object" && "valid_complete" in payload) {
+        setWallStatus("complete and valid", "good");
+        finalizeAttempt("good", "valid");
+      } else if (payload && typeof payload === "object" && "invalid" in payload) {
+        setWallStatus(describeStatus(payload), "critical");
+        finalizeAttempt("critical", "rejected");
+      }
+      break;
+    case "query_matched":
+      sendPacket(linkBS, SERVER, "fwd");
+      addChat(payload, "assistant");
+      break;
+    case "query_rejected":
+      setWallStatus("rejected: " + payload, "critical");
+      break;
+    case "retrying":
+      setWallStatus("retry " + payload.attempt + "/" + payload.max_attempts + ": iterating on the AST...", "warning");
+      setLlmBadge("×" + payload.attempt);
+      sendPacket(linkSL, SERVER, "fwd");
+      setTimeout(() => {
+        startAttempt("Attempt " + payload.attempt + " of " + payload.max_attempts);
+        pulseLlmNode();
+      }, 400);
+      break;
+    case "gave_up":
+      setWallStatus("gave up after " + payload.attempts + " attempt(s)", "critical");
+      addChat("Sorry, I couldn't get a valid query after " + payload.attempts + " attempts.", "error");
+      break;
+  }
+}
+
+let ws;
+function connect() {
+  ws = new WebSocket("ws://" + location.host + "/ws");
+  ws.onopen = () => {
+    status.textContent = "connected";
+    sendBtn.disabled = false;
+  };
+  ws.onclose = () => {
+    status.textContent = "disconnected - reconnecting...";
+    sendBtn.disabled = true;
+    setTimeout(connect, 1000);
+  };
+  ws.onerror = () => ws.close();
+  ws.onmessage = (ev) => {
+    const msg = JSON.parse(ev.data);
+    if (msg.event) {
+      handleEvent(msg.event);
+    } else if (msg.error) {
+      setWallStatus("error: " + msg.error, "critical");
+      addChat("Something went wrong: " + msg.error, "error");
+    }
+  };
+}
+connect();
+
+form.addEventListener("submit", (e) => {
+  e.preventDefault();
+  const text = input.value.trim();
+  if (!text || ws.readyState !== WebSocket.OPEN) return;
+  addChat(text, "user");
+  ws.send(JSON.stringify({ prompt: text }));
+  input.value = "";
+});
+</script>

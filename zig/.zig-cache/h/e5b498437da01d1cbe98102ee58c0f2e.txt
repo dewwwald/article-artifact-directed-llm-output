@@ -1,0 +1,4 @@
+0
+658960 6312709 1784348989832559515 53bd243166efeb4c3bb84c958c8e7a91 0 /Users/dewaldlaubscher/Projects/directed-llm-output/zig/zig-pkg/N-V-__8AAH-mpwB7g3MnqYU-ooUBF1t99RP27dZ9addtMVXD/sqlite3.h
+899 6022336 1776106215000000000 9171157f92533dccf625196b070a29bb 1 compiler/aro/include/stdarg.h
+111 6179779 1784244005318008259 8498792010ed2c7ee42e8b878044516d 0 /Users/dewaldlaubscher/Projects/directed-llm-output/zig/zig-pkg/sqlite-3.48.0-F2R_azCQDgBGaWDIX4g2vxKpuqzYEQOOfAeJGMNocPu0/c/workaround.h
