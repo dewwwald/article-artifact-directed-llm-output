@@ -34,19 +34,47 @@ fn itemsToJson(allocator: std.mem.Allocator, rows: []const Item) !json.Value {
 /// except whatever field names happen to appear in the doc's illustrative
 /// example. Derived from `Item`'s own fields so it can't drift out of sync.
 fn dataSchemaHint(allocator: std.mem.Allocator) ![]u8 {
+    const fields = std.meta.fields(Item);
     var aw: std.Io.Writer.Allocating = .init(allocator);
     defer aw.deinit();
-    try aw.writer.writeAll(
-        "The data being queried is {\"items\": [...]}, where each item has exactly these fields (no others exist): ",
-    );
-    inline for (std.meta.fields(Item), 0..) |field, i| {
-        if (i > 0) try aw.writer.writeAll(", ");
-        try aw.writer.print("\"{s}\"", .{field.name});
+    const w = &aw.writer;
+
+    try w.writeAll("The data being queried is {\"items\": [...]}, where each item has exactly these fields (no others exist): ");
+    inline for (fields, 0..) |field, i| {
+        if (i > 0) try w.writeAll(", ");
+        try w.print("\"{s}\"", .{field.name});
     }
-    try aw.writer.writeAll(". Map the user's wording onto exactly these field names, never a synonym (e.g. \"cost\" or \"amount\" both mean the \"price\" field). Keep using the full \"$.items[]\" + \"then\" path convention described above with these field names, e.g. \"then\": [{\"path\": \"$.");
-    if (std.meta.fields(Item).len > 0) try aw.writer.print("{s}", .{std.meta.fields(Item)[0].name});
-    try aw.writer.writeAll("\", ...}] - never a bare field name like \"price\" with no \"$.\" prefix.");
-    return allocator.dupe(u8, aw.writer.buffered());
+    try w.writeAll(
+        \\. Map the user's wording onto exactly these field names, never a synonym (e.g. "cost" or "amount" both mean the "price" field).
+        \\
+        \\Because the root object's only key is "items" (an array), your query MUST have exactly one top-level Node with "path": "$.items[]", and EVERY actual filtering condition on a field MUST be its own Node inside that top-level Node's "then" array (paths like "$.
+    );
+    if (fields.len > 0) try w.print("{s}", .{fields[0].name});
+    try w.writeAll(
+        \\"). Never put a field check directly in the top-level array - that only checks the raw array/item against a value, which can never match.
+        \\
+        \\WRONG (never do this - "$.items[]" and "$.
+    );
+    if (fields.len > 1) try w.print("{s}", .{fields[1].name}) else if (fields.len > 0) try w.print("{s}", .{fields[0].name});
+    try w.writeAll(
+        \\" as separate top-level entries):
+        \\[{"operand": "AND", "action": "EQUALS", "path": "$.items[]", "value": "
+    );
+    if (fields.len > 0) try w.print("{s}", .{"gadget"});
+    try w.writeAll("\"}, {\"operand\": \"AND\", \"action\": \"EQUALS\", \"path\": \"$.");
+    if (fields.len > 1) try w.print("{s}", .{fields[1].name});
+    try w.writeAll(
+        \\", "value": "50"}]
+        \\
+        \\RIGHT (one top-level node, conditions nested in "then"):
+        \\[{"operand": "AND", "action": "EQUALS", "path": "$.items[]", "value": "", "then": [
+    );
+    inline for (fields, 0..) |field, i| {
+        if (i > 0) try w.writeAll(",");
+        try w.print("\n  {{\"operand\": \"AND\", \"action\": \"EQUALS\", \"path\": \"$.{s}\", \"value\": \"...\"}}", .{field.name});
+    }
+    try w.writeAll("\n]}]");
+    return allocator.dupe(u8, w.buffered());
 }
 
 const AttemptResult = union(enum) {

@@ -481,8 +481,18 @@ function appendBrick(byte, status) {
   }
 }
 
+// Events (including the final "valid"/"matched" ones) arrive over the
+// websocket essentially all at once - there's no per-token network delay to
+// pace against. Everything that must happen in visual order (a brick, then
+// eventually the finalize/pretty-print swap, then the chat reply) goes
+// through this one paced queue, so finalizing never runs ahead of the bricks
+// it depends on (e.g. JSON.parse-ing the still-partially-drawn raw text).
 function queueBrick(byte, status) {
-  brickQueue.push({ byte, status });
+  brickQueue.push(() => appendBrick(byte, status));
+  if (!draining) drainBricks();
+}
+function queueAction(fn) {
+  brickQueue.push(fn);
   if (!draining) drainBricks();
 }
 function drainBricks() {
@@ -492,8 +502,8 @@ function drainBricks() {
       draining = false;
       return;
     }
-    const { byte, status } = brickQueue.shift();
-    appendBrick(byte, status);
+    const fn = brickQueue.shift();
+    fn();
     setTimeout(step, 16);
   };
   step();
@@ -535,15 +545,17 @@ function handleEvent(event) {
       }
       if (payload && typeof payload === "object" && "valid_complete" in payload) {
         setWallStatus("complete and valid", "good");
-        finalizeAttempt("good", "valid");
+        queueAction(() => finalizeAttempt("good", "valid"));
       } else if (payload && typeof payload === "object" && "invalid" in payload) {
         setWallStatus(describeStatus(payload), "critical");
-        finalizeAttempt("critical", "rejected");
+        queueAction(() => finalizeAttempt("critical", "rejected"));
       }
       break;
     case "query_matched":
-      sendPacket(linkBS, SERVER, "fwd");
-      addChat(payload, "assistant");
+      queueAction(() => {
+        sendPacket(linkBS, SERVER, "fwd");
+        addChat(payload, "assistant");
+      });
       break;
     case "query_rejected":
       setWallStatus("rejected: " + payload, "critical");
@@ -551,15 +563,15 @@ function handleEvent(event) {
     case "retrying":
       setWallStatus("retry " + payload.attempt + "/" + payload.max_attempts + ": iterating on the AST...", "warning");
       setLlmBadge("×" + payload.attempt);
-      sendPacket(linkSL, SERVER, "fwd");
-      setTimeout(() => {
+      queueAction(() => {
+        sendPacket(linkSL, SERVER, "fwd");
         startAttempt("Attempt " + payload.attempt + " of " + payload.max_attempts);
         pulseLlmNode();
-      }, 400);
+      });
       break;
     case "gave_up":
       setWallStatus("gave up after " + payload.attempts + " attempt(s)", "critical");
-      addChat("Sorry, I couldn't get a valid query after " + payload.attempts + " attempts.", "error");
+      queueAction(() => addChat("Sorry, I couldn't get a valid query after " + payload.attempts + " attempts.", "error"));
       break;
   }
 }

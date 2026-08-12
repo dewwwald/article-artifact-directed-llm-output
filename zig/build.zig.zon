@@ -20,5 +20,6 @@
         "render",
         "web",
         "LICENSE",
+        "README.md",
     },
 }

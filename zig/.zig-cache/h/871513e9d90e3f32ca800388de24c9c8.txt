@@ -826,7 +826,7 @@
 1414 6872596 1784912388950270392 e70c60dfc78b41c4b44677264db4fcbc 0 /Users/dewaldlaubscher/Projects/directed-llm-output/zig/ast/json_schema.zig
 143932 6179787 1784244005320058186 025422862b9fdbc23bc56603ce992d0a 0 /Users/dewaldlaubscher/Projects/directed-llm-output/zig/zig-pkg/sqlite-3.48.0-F2R_azCQDgBGaWDIX4g2vxKpuqzYEQOOfAeJGMNocPu0/sqlite.zig
 141 6375094 1784383065502955778 48affd2cd552597fadb1190887f1f654 0 /Users/dewaldlaubscher/Projects/directed-llm-output/zig/db/entity/item.zig
-8949 6943331 1784957908224418868 360a9e5b1c1676d823f76d36121ca84c 0 /Users/dewaldlaubscher/Projects/directed-llm-output/zig/query.zig
+10166 7020854 1784998185392560014 c8c75eedb07778c225727695a643cc0c 0 /Users/dewaldlaubscher/Projects/directed-llm-output/zig/query.zig
 1241 6849423 1784860560365301687 7f7dd30da97bd1a226fa5e37e5a1bf56 0 /Users/dewaldlaubscher/Projects/directed-llm-output/zig/render/renderer.zig
 1864 6852222 1784861290297500306 af09cac7ba676cd9a2cb17777b1a4ff3 0 /Users/dewaldlaubscher/Projects/directed-llm-output/zig/render/terminal_renderer.zig
 1062 6895627 1784923245861149290 7408a516ee4160b3556e0f666369da81 0 /Users/dewaldlaubscher/Projects/directed-llm-output/zig/render/websocket_renderer.zig
