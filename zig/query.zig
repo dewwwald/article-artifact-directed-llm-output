@@ -159,6 +159,12 @@ pub fn run(allocator: std.mem.Allocator, io: std.Io, bus: *Bus, rows: []const It
         var reason: []const u8 = undefined;
         var bad_content: []const u8 = undefined;
 
+        // Published before the request goes out, so the demo can show the
+        // actual shape of what constrains the model: the full system prompt
+        // (grammar doc + data schema hint) and the full user turn (the
+        // original question, or - on a retry - the rejection feedback).
+        try bus.publish(.{ .guided_prompt_sent = .{ .attempt = attempt, .system = doc, .user = prompt } });
+
         switch (try attemptOnce(allocator, io, bus, doc, prompt, schema.value)) {
             .valid => |content| {
                 // Schema-valid JSON can still be semantically unusable - e.g. a

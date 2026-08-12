@@ -6,6 +6,7 @@ const ValidatorStatus = @import("../llm/prefix_validator.zig").Status;
 /// be serialized (e.g. to JSON) without extra plumbing.
 pub const Event = union(enum) {
     prompt_sent: []const u8,
+    guided_prompt_sent: struct { attempt: usize, system: []const u8, user: []const u8 },
     response_received: []const u8,
     token_fed: struct { byte: u8, index: usize },
     validation_result: ValidatorStatus,

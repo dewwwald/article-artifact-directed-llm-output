@@ -16,6 +16,7 @@ pub const TerminalRenderer = struct {
         const self: *TerminalRenderer = @ptrCast(@alignCast(ptr));
         switch (event) {
             .prompt_sent => |prompt| std.debug.print("[timeline] prompt sent: \"{s}\"\n", .{prompt}),
+            .guided_prompt_sent => |p| std.debug.print("[timeline] guided prompt built for attempt {d} (system: {d} bytes, user: {d} bytes)\n", .{ p.attempt, p.system.len, p.user.len }),
             .response_received => |resp| std.debug.print("[timeline] llm response received ({d} bytes)\n", .{resp.len}),
             .token_fed => |t| std.debug.print("[timeline] token {d}: '{c}'\n", .{ t.index, t.byte }),
             .validation_result => |status| switch (status) {
